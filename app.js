@@ -90,38 +90,34 @@ async function handleGoogleAuth(resp) {
   }
 }
 
-const WORKER_TEMPLATE_CODE = `const SHEET_ID = '__SHEET_ID__';
-const API_KEY = '__API_KEY__';
-
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  const range = url.searchParams.get('range') || 'Sheet1!A:F';
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': '*',
-  };
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+const WORKER_TEMPLATE_CODE = `export default {
+  async fetch(request, env) {
+    const SHEET_ID = '__SHEET_ID__';
+    const url = new URL(request.url);
+    const range = url.searchParams.get('range') || 'Sheet1!A:F';
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+    };
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+    const apiUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(range) + '?key=' + env.GOOGLE_API_KEY;
+    try {
+      const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
   }
-  const apiUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(range) + '?key=' + API_KEY;
-  try {
-    const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
-}
-
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request));
-});`;
+};`;
 
 async function createSheet(token) {
   const r1 = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -175,9 +171,19 @@ async function makeSheetPublic(token, sheetId) {
 // STEP 2 — CLOUDFLARE
 // ═══════════════════════════════════════════════════════
 
+async function deployWorker(accountId, scriptName, code) {
+  const token = $('cf-token').value.trim();
+  const res = await fetch('/api/deploy-worker', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId, scriptName, workerCode: code, token }),
+  });
+  return res.json();
+}
+
 async function stepCloudflare() {
   if (!CONFIG) { setStatus('status-cloudflare', 'Carregando configurações...', 'loading'); return; }
-  if (!CONFIG.GOOGLE_API_KEY) { setStatus('status-cloudflare', 'GOOGLE_API_KEY não configurado no servidor.', 'error'); return; }
+  if (!CONFIG.GOOGLE_API_KEY_CONFIGURED) { setStatus('status-cloudflare', 'GOOGLE_API_KEY não configurado no servidor.', 'error'); return; }
 
   const token = $('cf-token').value.trim();
   if (!token) {
@@ -209,14 +215,9 @@ async function stepCloudflare() {
     setStatus('status-cloudflare', 'Criando worker...', 'loading');
 
     let workerCode = WORKER_TEMPLATE_CODE
-      .replace('__SHEET_ID__', S.sheetId)
-      .replace('__API_KEY__', CONFIG.GOOGLE_API_KEY);
+      .replace('__SHEET_ID__', S.sheetId);
 
-    const createData = await cfApi(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${scriptName}`,
-      'PUT',
-      workerCode
-    );
+    const createData = await deployWorker(accountId, scriptName, workerCode);
     if (!createData.success) throw new Error(createData.errors?.[0]?.message || 'Falha ao criar worker');
 
     const accountName = accData.result[0].name || '';
@@ -301,7 +302,6 @@ async function stepCloudflare() {
 
     setStatus('status-cloudflare', `✅ Worker criado e ativo! URL: ${S.proxyUrl}`, 'success');
     toast('Worker criado com sucesso!', 'success');
-    completeStep(2);
     completeStep(2);
 
   } catch (e) {
