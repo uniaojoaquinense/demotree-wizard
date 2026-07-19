@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autenticação</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1a1a2e; color: #fff; }
+    .msg { text-align: center; padding: 2rem; }
+    .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.15); border-top-color: #e8b847; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-google { display: inline-flex; align-items: center; gap: 10px; padding: 14px 32px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background: #fff; color: #333; margin-top: 12px; }
+    .btn-google:hover { background: #f0f0f0; }
+    .btn-google img { width: 20px; height: 20px; }
+    .erro { color: #f44; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="msg" id="status">
+    <div class="spinner"></div>
+    <div>Carregando...</div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client"></script>
+  <script>
+    (async function() {
+      const params = new URLSearchParams(location.search);
+      const targetOrigin = params.get('origin') || '*';
+
+      try {
+        const configRes = await fetch('/api/config');
+        const config = await configRes.json();
+
+        if (!config.GOOGLE_CLIENT_ID) {
+          document.getElementById('status').innerHTML = '<div class="erro">Erro: configuração do servidor incompleta.</div>';
+          return;
+        }
+
+        const clientId = config.GOOGLE_CLIENT_ID;
+        const scope = config.GOOGLE_SCOPES || 'https://www.googleapis.com/auth/spreadsheets';
+
+        let tokenClient;
+        document.getElementById('status').innerHTML =
+          '<p style="margin-bottom:8px">Faça login com sua conta Google para autorizar o painel admin:</p>' +
+          '<button class="btn-google" id="btn-login">' +
+          '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.6-5.6 8-11.3 8-6.7 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.1 8.1 3l5.7-5.7C34.6 6.1 29.6 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.2-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.2 16.1 18.3 13 24 13c3.1 0 5.9 1.1 8.1 3l5.7-5.7C34.6 6.1 29.6 4 24 4 16.5 4 9.9 8.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.6 0 10.6-2.1 14.4-5.6l-6.6-5.6c-2.1 1.4-4.6 2.2-7.8 2.2-5.7 0-10.7-3.4-12.8-8.2l-6.6 5.1C9.9 39.6 16.5 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.2 5.6.1-.1.1.1.2.1l6.6 5.6c-.5.4 6.1-4.8 6.1-14.7 0-1.3-.2-2.7-.4-4z"/></svg>' +
+          'Login com Google</button>';
+
+        document.getElementById('btn-login').onclick = () => {
+          if (!tokenClient) {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+              client_id: clientId,
+              scope: scope,
+              callback: (resp) => {
+                if (resp.error) {
+                  document.getElementById('status').innerHTML = '<div class="erro">Erro: ' + resp.error + '</div>';
+                  return;
+                }
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'google-oauth', accessToken: resp.access_token }, targetOrigin);
+                }
+                window.close();
+              },
+            });
+          }
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+        };
+
+      } catch (e) {
+        document.getElementById('status').innerHTML = '<div class="erro">Erro ao carregar configurações: ' + e.message + '</div>';
+      }
+    })();
+  </script>
+</body>
+</html>

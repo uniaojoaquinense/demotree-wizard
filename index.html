@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto Setup — Site de Links</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header>
+    <h1><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Setup</h1>
+    <p>Configure seu site de links em 3 passos</p>
+  </header>
+
+  <!-- Progress steps -->
+  <div class="steps">
+    <div class="step active" data-step="1">
+      <span class="step-num">1</span>
+      <span class="step-label">Google Sheets</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step" data-step="2">
+      <span class="step-num">2</span>
+      <span class="step-label">Cloudflare</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step" data-step="3">
+      <span class="step-num">3</span>
+      <span class="step-label">GitHub</span>
+    </div>
+  </div>
+
+  <!-- Step 1: Google -->
+  <div id="step-1" class="step-content active">
+    <div class="card">
+      <h2><i class="fa-brands fa-google"></i> Criar Planilha</h2>
+      <p class="card-desc">Vamos criar uma planilha do Google Sheets com a estrutura pronta para seus links e configurações.</p>
+
+      <button id="btn-google" class="btn btn-google" onclick="stepGoogle()">
+        <i class="fa-brands fa-google"></i> Entrar com Google
+      </button>
+
+      <div id="status-google" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Cloudflare -->
+  <div id="step-2" class="step-content">
+    <div class="card">
+      <h2><i class="fa-brands fa-cloudflare"></i> Criar Proxy</h2>
+      <p class="card-desc">Crie um token no Cloudflare com permissão de editar Workers e cole abaixo. O worker será criado automaticamente na sua conta.</p>
+
+      <div class="cf-guide">
+        <p><strong>Como criar o token:</strong></p>
+        <ol>
+          <li>Acesse <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank">dash.cloudflare.com/profile/api-tokens</a></li>
+          <li>Clique em <strong>"Create Token"</strong></li>
+          <li>Selecione o template <strong>"Edit Cloudflare Workers"</strong></li>
+          <li>Em <strong>Account Resources</strong>, selecione sua conta (seu email)</li>
+          <li>Em <strong>Zone Resources</strong>, selecione <strong>"All zones"</strong></li>
+          <li>Clique em <strong>"Continue to summary"</strong> e depois <strong>"Create Token"</strong></li>
+          <li>Copie o token (começa com <code>xxxx</code>) e cole abaixo</li>
+        </ol>
+      </div>
+
+      <div class="input-group">
+        <input type="text" id="cf-token" placeholder="Cole seu API Token aqui..." autocomplete="off">
+        <button class="btn btn-cloudflare" onclick="stepCloudflare()">
+          <i class="fa-brands fa-cloudflare"></i> Criar Worker
+        </button>
+      </div>
+
+      <div id="status-cloudflare" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Step 3: GitHub -->
+  <div id="step-3" class="step-content">
+    <div class="card">
+      <h2><i class="fa-brands fa-github"></i> Criar Repositório</h2>
+      <p class="card-desc">Vamos criar um repositório no GitHub com o site configurado e ativar o GitHub Pages.</p>
+
+      <button id="btn-github" class="btn btn-github" onclick="stepGitHub()">
+        <i class="fa-brands fa-github"></i> Conectar GitHub
+      </button>
+
+      <div id="status-github" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div id="step-done" class="step-content">
+    <div class="card card-done">
+      <div class="done-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <h2>Tudo pronto!</h2>
+      <p class="card-desc">Seu site foi criado com sucesso.</p>
+      <p class="card-desc" style="font-size:0.85em;color:var(--gold);margin-top:-8px">O GitHub Pages pode levar alguns minutos para publicar — não se preocupe se o endereço não abrir de imediato.</p>
+
+      <div class="done-links">
+        <a id="site-url" href="#" target="_blank" class="btn btn-primary">
+          <i class="fa-solid fa-globe"></i> Acessar Site
+        </a>
+        <a id="admin-url" href="#" target="_blank" class="btn btn-secondary">
+          <i class="fa-solid fa-lock"></i> Painel Admin
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client"></script>
+<script src="app.js"></script>
+</body>
+</html>
