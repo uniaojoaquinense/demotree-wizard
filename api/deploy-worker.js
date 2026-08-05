@@ -1,9 +1,15 @@
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { accountId, scriptName, workerCode, token } = req.body || {};
+  const { accountId, scriptName, workerCode, token, allowedOrigin } = req.body || {};
 
   if (!accountId || !scriptName || !workerCode || !token) {
     return res.status(400).json({ success: false, errors: [{ message: 'accountId, scriptName, workerCode e token são obrigatórios' }] });
@@ -15,17 +21,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ success: false, errors: [{ message: 'GOOGLE_API_KEY não configurada no servidor' }] });
     }
 
+    const bindings = [
+      { name: 'GOOGLE_API_KEY', type: 'secret_text', text: apiKey }
+    ];
+    if (allowedOrigin) {
+      bindings.push({ name: 'ALLOWED_ORIGIN', type: 'secret_text', text: allowedOrigin });
+    }
     const boundary = '----boundary-demotree-' + Date.now();
     const metadata = JSON.stringify({
       main_module: 'worker.js',
-      bindings: [
-        { name: 'GOOGLE_API_KEY', type: 'secret_text', text: apiKey }
-      ]
+      bindings
     });
 
     const parts = [
       `--${boundary}\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n`,
-      `--${boundary}\r\nContent-Disposition: form-data; name="worker.js"\r\nContent-Type: application/javascript\r\n\r\n${workerCode}\r\n`,
+      `--${boundary}\r\nContent-Disposition: form-data; name="worker.js"; filename="worker.js"\r\nContent-Type: application/javascript+module\r\n\r\n${workerCode}\r\n`,
       `--${boundary}--\r\n`,
     ];
 

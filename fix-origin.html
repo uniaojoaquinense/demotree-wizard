@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head><meta charset="UTF-8"><title>Fix ALLOWED_ORIGIN</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 20px;background:#f5f5f5}
+  .card{background:#fff;padding:28px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+  h2{margin:0 0 8px;font-size:20px}
+  p{font-size:13px;color:#666;margin:0 0 16px}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+  input{width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box}
+  .hint{font-size:11px;color:#888;margin-top:2px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .row button{flex:1;margin-top:12px;min-width:180px}
+  button{padding:12px;background:#f38020;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  button.sec{background:#666}
+  button.green{background:#28a745}
+  #logs{margin-top:16px;font-size:13px;word-break:break-all;white-space:pre-wrap;max-height:500px;overflow:auto}
+  .log-entry{padding:8px 12px;border-radius:6px;margin-bottom:6px;display:none}
+  .ok{background:#d4edda;color:#155724;display:block!important}
+  .err{background:#f8d7da;color:#721c24;display:block!important}
+  .info{background:#e8f4fd;color:#0c5460;display:block!important}
+  code{background:#eee;padding:1px 4px;border-radius:3px;font-size:12px}
+</style></head>
+<body>
+<div class="card">
+  <h2>🔒 Proteger Worker</h2>
+  <p>Passo 1 atualiza o código. Passo 2 adiciona a proteção de origem.</p>
+
+  <label>Cloudflare Token</label>
+  <input id="token" placeholder="API Token do Cloudflare">
+  <label>Account ID</label>
+  <input id="accountId" placeholder="ID da conta Cloudflare">
+  <label>Worker Name</label>
+  <input id="scriptName" value="demolay-proxy">
+  <label>Site URL (origens permitidas, separar por vírgula)</label>
+  <input id="siteUrl" value="https://decimaquintasp.github.io,https://demotree-wizard.vercel.app">
+  <label>Sheet ID</label>
+  <input id="sheetId" value="17xcpYAfxBav0U_a8dUYXU1kkYVbBqJElDypvzuKL3Cw">
+
+  <div class="row">
+    <button class="sec" onclick="step1()">1. Atualizar Código</button>
+    <button class="green" onclick="step2()">2. Adicionar ALLOWED_ORIGIN</button>
+  </div>
+  <div class="row">
+    <button onclick="stepBoth()">⚡ Fazer Tudo (1+2)</button>
+  </div>
+  <div id="logs"></div>
+</div>
+<script>
+function log(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'log-entry ' + type;
+  el.textContent = msg;
+  document.getElementById('logs').prepend(el);
+}
+
+async function callApi(code, allowedOrigin) {
+  const token = document.getElementById('token').value.trim();
+  const accountId = document.getElementById('accountId').value.trim();
+  const scriptName = document.getElementById('scriptName').value.trim();
+  if (!token || !accountId) throw new Error('Preencha token e account ID');
+  const body = { accountId, scriptName, token, workerCode: code };
+  if (allowedOrigin) body.allowedOrigin = allowedOrigin;
+  const r = await fetch('https://demotree-wizard.vercel.app/api/deploy-worker', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+function buildCode() {
+  const sheetId = document.getElementById('sheetId').value.trim();
+  if (!sheetId) throw new Error('Preencha o Sheet ID');
+  return `export default {\n` +
+  `  async fetch(request, env) {\n` +
+  `    const url = new URL(request.url);\n` +
+  `    const allowedList = (env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);\n` +
+  `    const origin = request.headers.get('Origin') || '';\n` +
+  `    const originOk = allowedList.length === 0 || (origin && allowedList.includes(origin));\n` +
+  `    const allowedOrigin = originOk ? (origin || '*') : (allowedList[0] || '*');\n` +
+  `    const corsHeaders = { 'Access-Control-Allow-Origin': allowedOrigin, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': '*', 'Vary': 'Origin' };\n` +
+  `    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });\n` +
+  `    if (!originOk) return new Response('Origin not allowed', { status: 403 });\n` +
+  `    const SHEET_ID = '${sheetId}';\n` +
+  `    const range = url.searchParams.get('range') || 'Sheet1!A:F';\n` +
+  `    const apiUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(range) + '?key=' + env.GOOGLE_API_KEY;\n` +
+  `    try {\n` +
+  `      const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });\n` +
+  `      const data = await response.json();\n` +
+  `      return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...corsHeaders } });\n` +
+  `    } catch (e) {\n` +
+  `      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });\n` +
+  `    }\n` +
+  `  }\n` +
+  `};`;
+}
+
+async function step1() {
+  try {
+    log('Passo 1: Enviando código novo (sem ALLOWED_ORIGIN)...', 'info');
+    const data = await callApi(buildCode());
+    if (data.success) {
+      log('✅ Passo 1 OK — Código atualizado!', 'ok');
+    } else {
+      log('❌ Passo 1 falhou: ' + (data.errors?.[0]?.message || JSON.stringify(data)), 'err');
+    }
+  } catch(e) {
+    log('❌ Erro: ' + e.message, 'err');
+  }
+}
+
+async function step2() {
+  try {
+    const allowed = document.getElementById('siteUrl').value.trim();
+    if (!allowed) { log('Preencha as origens permitidas', 'err'); return; }
+    log('Passo 2: Adicionando ALLOWED_ORIGIN (' + allowed + ')...', 'info');
+    const data = await callApi(buildCode(), allowed);
+    if (data.success) {
+      log('✅ Passo 2 OK — ALLOWED_ORIGIN configurado!', 'ok');
+    } else {
+      log('❌ Passo 2 falhou: ' + (data.errors?.[0]?.message || JSON.stringify(data)), 'err');
+    }
+  } catch(e) {
+    log('❌ Erro: ' + e.message, 'err');
+  }
+}
+
+async function stepBoth() {
+  log('⚡ Iniciando processo completo...', 'info');
+  await step1();
+  await new Promise(r => setTimeout(r, 1000));
+  await step2();
+  log('🏁 Processo finalizado! Teste o worker com e sem Origin.', 'info');
+}
+</script></body>
+</html>

@@ -1,6 +1,7 @@
 let CONFIG = null;
 
 const S = {
+  chapterName: null,
   sheetId: null,
   sheetUrl: null,
   proxyUrl: null,
@@ -8,6 +9,11 @@ const S = {
   repoName: null,
   githubUser: null,
   githubToken: null,
+  cfToken: null,
+  cfAccountId: null,
+  cfScriptName: null,
+  workerCode: null,
+  siteUrl: null,
 };
 
 function $(id) { return document.getElementById(id); }
@@ -47,6 +53,12 @@ function stepGoogle() {
   if (!CONFIG) { setStatus('status-google', 'Carregando configurações...', 'loading'); return; }
   if (!CONFIG.GOOGLE_CLIENT_ID) { setStatus('status-google', 'Erro: GOOGLE_CLIENT_ID não configurado.', 'error'); return; }
 
+  S.chapterName = ($('chapter-name').value || '').trim();
+  if (!S.chapterName) {
+    setStatus('status-google', 'Informe o nome do capítulo antes de continuar.', 'error');
+    return;
+  }
+
   const btn = $('btn-google');
   btn.disabled = true;
   setStatus('status-google', 'Abrindo popup do Google...', 'loading');
@@ -76,7 +88,7 @@ async function handleGoogleAuth(resp) {
   setStatus('status-google', 'Criando planilha...', 'loading');
 
   try {
-    const sheet = await createSheet(resp.access_token);
+    const sheet = await createSheet(resp.access_token, S.chapterName);
     S.sheetId = sheet.spreadsheetId;
     S.sheetUrl = sheet.spreadsheetUrl;
     setStatus('status-google', 'Tornando planilha pública...', 'loading');
@@ -95,13 +107,21 @@ const WORKER_TEMPLATE_CODE = `export default {
     const SHEET_ID = '__SHEET_ID__';
     const url = new URL(request.url);
     const range = url.searchParams.get('range') || 'Sheet1!A:F';
+    const origin = request.headers.get('Origin') || '';
+    const allowedList = (env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+    const originOk = allowedList.length === 0 || (origin && allowedList.includes(origin));
+    const allowedOrigin = originOk ? (origin || '*') : (allowedList[0] || '*');
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': '*',
+      'Vary': 'Origin',
     };
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
+    }
+    if (!originOk) {
+      return new Response('Origin not allowed', { status: 403 });
     }
     const apiUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(range) + '?key=' + env.GOOGLE_API_KEY;
     try {
@@ -119,12 +139,13 @@ const WORKER_TEMPLATE_CODE = `export default {
   }
 };`;
 
-async function createSheet(token) {
+async function createSheet(token, chapterName) {
+  const nome = (chapterName || '').trim() || 'Meu Capítulo';
   const r1 = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      properties: { title: 'Links — Capítulo Demolay' },
+      properties: { title: nome },
       sheets: [
         { properties: { title: 'Sheet1' } },
         { properties: { title: 'Sheet2' } },
@@ -148,7 +169,7 @@ async function createSheet(token) {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      values: [['chave', 'valor'], ['nome', 'Meu Capítulo']],
+      values: [['chave', 'valor'], ['nome', nome]],
     }),
   });
 
@@ -171,12 +192,14 @@ async function makeSheetPublic(token, sheetId) {
 // STEP 2 — CLOUDFLARE
 // ═══════════════════════════════════════════════════════
 
-async function deployWorker(accountId, scriptName, code) {
-  const token = $('cf-token').value.trim();
+async function deployWorker(accountId, scriptName, code, token, allowedOrigin) {
+  if (!token) token = S.cfToken;
+  const body = { accountId, scriptName, workerCode: code, token };
+  if (allowedOrigin) body.allowedOrigin = allowedOrigin;
   const res = await fetch('/api/deploy-worker', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accountId, scriptName, workerCode: code, token }),
+    body: JSON.stringify(body),
   });
   return res.json();
 }
@@ -190,6 +213,7 @@ async function stepCloudflare() {
     setStatus('status-cloudflare', 'Cole seu API Token do Cloudflare primeiro.', 'error');
     return;
   }
+  S.cfToken = token;
 
   const btn = document.querySelector('.btn-cloudflare');
   btn.disabled = true;
@@ -211,13 +235,16 @@ async function stepCloudflare() {
 
     const accountId = accData.result[0].id;
     const scriptName = CONFIG.WORKER_SCRIPT_NAME;
+    S.cfAccountId = accountId;
+    S.cfScriptName = scriptName;
 
     setStatus('status-cloudflare', 'Criando worker...', 'loading');
 
     let workerCode = WORKER_TEMPLATE_CODE
       .replace('__SHEET_ID__', S.sheetId);
+    S.workerCode = workerCode;
 
-    const createData = await deployWorker(accountId, scriptName, workerCode);
+    const createData = await deployWorker(accountId, scriptName, workerCode, token);
     if (!createData.success) throw new Error(createData.errors?.[0]?.message || 'Falha ao criar worker');
 
     const accountName = accData.result[0].name || '';
@@ -276,8 +303,12 @@ async function stepCloudflare() {
       btn.textContent = '🔄 Verificar';
       btn.onclick = async () => {
         btn.disabled = true;
-        setStatus('status-cloudflare', 'Verificando...', 'loading');
+        setStatus('status-cloudflare', 'Reenviando worker...', 'loading');
         try {
+          const redeployData = await deployWorker(accountId, scriptName, workerCode, token);
+          if (!redeployData.success) throw new Error(redeployData.errors?.[0]?.message || 'Falha ao recriar worker');
+          setStatus('status-cloudflare', 'Verificando worker...', 'loading');
+          await new Promise(r => setTimeout(r, 2000));
           const retry = await fetch(S.proxyUrl, { method: 'HEAD' });
           if (retry.ok) {
             setStatus('status-cloudflare', `✅ Worker criado! URL: ${S.proxyUrl}`, 'success');
@@ -287,13 +318,13 @@ async function stepCloudflare() {
             completeStep(2);
           } else {
             setStatus('status-cloudflare',
-              `Ainda não está ativo. Ative o toggle no dashboard e clique em <strong>Verificar</strong> novamente.`,
+              `Worker recriado, mas o subdomínio pode levar alguns instantes. Tente novamente.`,
               'error'
             );
             btn.disabled = false;
           }
-        } catch (_) {
-          setStatus('status-cloudflare', 'Ainda não está acessível. Ative o toggle e tente de novo.', 'error');
+        } catch (e) {
+          setStatus('status-cloudflare', 'Erro: ' + e.message + ' — Verifique o dashboard e tente novamente.', 'error');
           btn.disabled = false;
         }
       };
@@ -536,8 +567,20 @@ async function updateConfigInRepo(headers) {
     setStatus('status-github', 'Atualizando arquivos do admin...', 'loading');
     await updateAdminFiles(headers);
 
+    setStatus('status-github', 'Customizando index.html...', 'loading');
+    await updateIndexHtml(headers);
+
     setStatus('status-github', 'Config.js atualizado. Ativando GitHub Pages...', 'loading');
     await enablePages(headers);
+
+    if (S.cfToken && S.cfAccountId && S.siteUrl) {
+      try {
+        setStatus('status-github', 'Protegendo worker...', 'loading');
+        await deployWorker(S.cfAccountId, S.cfScriptName, S.workerCode, null, S.siteUrl);
+      } catch (_) {
+        console.warn('Falha ao atualizar binding de origem do worker');
+      }
+    }
 
   } catch (e) {
     throw e;
@@ -586,6 +629,62 @@ async function updateAdminFiles(headers) {
   }
 }
 
+async function updateIndexHtml(headers) {
+  const { repoOwner, repoName } = S;
+
+  try {
+    const nomeEsc = (S.chapterName || '').trim().replace(/</g, '&lt;');
+    if (!nomeEsc) { console.warn('Nome do capítulo não informado; pulando customização do index.html'); return; }
+    const desc = `Links e recursos do capítulo ${nomeEsc}.`;
+
+    const getRes = await fetch(
+      `https://api.github.com/repos/${repoOwner}/${repoName}/contents/index.html`, { headers }
+    );
+    if (!getRes.ok) { console.warn('Não foi possível buscar index.html:', await getRes.text()); return; }
+
+    const existing = await getRes.json();
+    let html = decodeURIComponent(escape(atob(existing.content)));
+
+    html = html.replace(/<title>[^<]*<\/title>/i, `<title>${nomeEsc}</title>`);
+
+    if (/<meta\s+name=["']description["']/i.test(html)) {
+      html = html.replace(
+        /<meta\s+name=["']description["'][^>]*>/i,
+        `<meta name="description" content="${desc}">`
+      );
+    } else {
+      html = html.replace(
+        /<meta charset="UTF-8">/i,
+        `<meta charset="UTF-8">\n  <meta name="description" content="${desc}">`
+      );
+    }
+
+    const ogTags = [
+      `  <meta property="og:title" content="${nomeEsc}">`,
+      `  <meta property="og:description" content="${desc}">`,
+      `  <meta property="og:type" content="website">`,
+    ];
+    if (!/<meta\s+property=["']og:title["']/i.test(html)) {
+      html = html.replace(/<title>[^<]*<\/title>/i, '<title>' + nomeEsc + '</title>\n' + ogTags.join('\n'));
+    }
+
+    const putRes = await fetch(
+      `https://api.github.com/repos/${repoOwner}/${repoName}/contents/index.html`, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Customiza index.html para o capítulo',
+          content: btoa(unescape(encodeURIComponent(html))),
+          sha: existing.sha,
+        }),
+      }
+    );
+    if (!putRes.ok) console.warn('Falha ao atualizar index.html:', await putRes.text());
+  } catch (e) {
+    console.warn('Erro ao customizar index.html:', e.message);
+  }
+}
+
 async function enablePages(headers) {
   const { repoOwner, repoName } = S;
 
@@ -603,6 +702,7 @@ async function enablePages(headers) {
     const siteUrl = isUserSite
       ? `https://${repoOwner}.github.io/`
       : `https://${repoOwner}.github.io/${repoName}/`;
+    S.siteUrl = siteUrl.replace(/\/+$/, '');
     const adminUrl = isUserSite
       ? `https://${repoOwner}.github.io/admin/`
       : `${siteUrl}admin/`;
