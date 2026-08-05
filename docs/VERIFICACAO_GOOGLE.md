@@ -22,7 +22,7 @@ O OAuth Client pertence ao **wizard** (servido em `https://demotree-wizard.verce
 Acesse https://console.cloud.google.com logado como **uniaojoaquinense@gmail.com**, abra o projeto do wizard e vá em **APIs & Services → OAuth consent screen**.
 
 ### 1. Informações do app
-- **App name**: Auto Setup — Site de Links
+- **App name**: `AutoSetup — Site de Links` (DEVE bater com o nome exibido na página inicial, `<title>` e `<h1>` do wizard). Se o nome no console for diferente (ex.: "DemotreeWizard - AutoSetup"), **altere o nome no console** para `AutoSetup — Site de Links`.
 - **App logo** (300×300 PNG): use o `imgs/brasao.png` do capítulo
 - **Support email**: `uniaojoaquinense@gmail.com`
 
@@ -41,11 +41,27 @@ Acesse https://console.cloud.google.com logado como **uniaojoaquinense@gmail.com
 ### 5. Developer contact info
 - `uniaojoaquinense@gmail.com`
 
-### 6. Verificação de domínio (se o Google pedir)
-- `vercel.app` é subdomínio; o DNS não é seu, então a verificação pode falhar. Nesse caso será preciso um domínio próprio (ex.: `uniaojoaquinense.demolay.com.br`) — fora do escopo atual.
+### 6. Verificação de domínio (obrigatória — foi o erro "site não registrado para você")
+- O Google exige provar que você é o dono do domínio da home page. `vercel.app` é subdomínio e o DNS não é seu, então use o **Search Console com método de arquivo HTML**:
+  1. Acesse https://search.google.com/search-console e adicione uma propriedade do tipo **URL prefix** = `https://demotree-wizard.vercel.app`.
+  2. Escolha o método **"HTML file"** e baixe o arquivo gerado (ex.: `google1234abcd.html`).
+  3. Coloque esse arquivo na **raiz do repo do wizard** (`demotreemaster/google1234abcd.html`), commite e faça deploy na Vercel (`vercel --prod`).
+  4. Volte ao Search Console e clique em **Verify** — o Google acessará `https://demotree-wizard.vercel.app/google1234abcd.html`.
+  5. Depois, no **OAuth consent screen**, em **Verify domain**, selecione esse domínio verificado.
+- Se não quiser depender de `vercel.app`, o caminho robusto é um **domínio próprio** (ex.: `uniaojoaquinense.demolay.com.br`) — fora do escopo atual.
 
 ### 7. Submit for verification
 - Clique em **Submit for verification**, marque o escopo sensível `spreadsheets` e preencha o questionário.
+
+## Erros típicos já vistos e como resolver
+
+| Erro | Causa | Correção |
+|---|---|---|
+| Site da home page não registrado | Domínio não verificado | Passo 6 (Search Console + arquivo HTML) |
+| Home page sem link à Política de Privacidade | Faltava link no `index.html` | Já corrigido: rodapé `.legal` no `index.html` aponta para `privacidade.html` |
+| URL da Política de Privacidade não funciona | Ponto final digitado a mais (`...privacidade.html.`) ou página não publicada | Usar exatamente `https://demotree-wizard.vercel.app/privacidade.html` (sem ponto final) |
+| Home page não explica a finalidade | Faltava texto descritivo | Já corrigido: seção `.purpose` no `index.html` |
+| Nome do app não corresponde | Nome no console ≠ nome na home | Alinhar para `AutoSetup — Site de Links` em ambos |
 
 ## Rascunho da justificativa (colar no submit)
 

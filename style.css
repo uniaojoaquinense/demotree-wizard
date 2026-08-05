@@ -381,3 +381,34 @@ header p {
   .input-group { flex-direction: column; }
   .done-links { flex-direction: column; }
 }
+
+/* ── Finalidade do app ── */
+.purpose {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: center;
+}
+.purpose strong { color: var(--gold); }
+
+/* ── Footer legal ── */
+.legal {
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.legal a {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+.legal a:hover { color: var(--gold); }

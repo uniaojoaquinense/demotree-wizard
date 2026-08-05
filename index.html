@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Auto Setup — Site de Links</title>
+  <title>AutoSetup — Site de Links</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -14,9 +14,14 @@
 <div id="app">
 
   <header>
-    <h1><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Setup</h1>
+    <h1><i class="fa-solid fa-wand-magic-sparkles"></i> AutoSetup</h1>
     <p>Configure seu site de links em 3 passos</p>
   </header>
+
+  <!-- Finalidade do app -->
+  <section class="purpose">
+    <p>O <strong>AutoSetup</strong> cria, de forma automática, um <strong>site de links</strong> para capítulos da Ordem DeMolay: uma planilha Google Sheets, um proxy no Cloudflare e um repositório no GitHub Pages — tudo pronto em poucos minutos.</p>
+  </section>
 
   <!-- Progress steps -->
   <div class="steps">
@@ -120,6 +125,11 @@
 </div>
 
 <div id="toast"></div>
+
+<footer class="legal">
+  <a href="privacidade.html"><i class="fa-solid fa-shield-halved"></i> Política de Privacidade</a>
+  <a href="termos.html"><i class="fa-solid fa-file-contract"></i> Termos de Serviço</a>
+</footer>
 
 <script src="https://accounts.google.com/gsi/client"></script>
 <script src="app.js"></script>
