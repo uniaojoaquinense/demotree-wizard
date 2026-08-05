@@ -15,6 +15,7 @@ O OAuth Client pertence ao **wizard** (servido em `https://demotree-wizard.verce
    GOOGLE_SCOPES: 'https://www.googleapis.com/auth/spreadsheets profile email'
    ```
 2. Política de privacidade pública em `https://demotree-wizard.vercel.app/privacidade.html`.
+3. Termos de Serviço públicos em `https://demotree-wizard.vercel.app/termos.html`.
 
 ## Passo a passo no Console Google
 
@@ -35,6 +36,7 @@ Acesse https://console.cloud.google.com logado como **uniaojoaquinense@gmail.com
 ### 4. Links da aplicação
 - **Application home page**: `https://demotree-wizard.vercel.app`
 - **Application privacy policy URL**: `https://demotree-wizard.vercel.app/privacidade.html`
+- **Application terms of service URL**: `https://demotree-wizard.vercel.app/termos.html`
 
 ### 5. Developer contact info
 - `uniaojoaquinense@gmail.com`
