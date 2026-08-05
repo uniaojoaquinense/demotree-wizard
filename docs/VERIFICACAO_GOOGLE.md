@@ -22,7 +22,7 @@ O OAuth Client pertence ao **wizard** (servido em `https://demotree-wizard.verce
 Acesse https://console.cloud.google.com logado como **uniaojoaquinense@gmail.com**, abra o projeto do wizard e vá em **APIs & Services → OAuth consent screen**.
 
 ### 1. Informações do app
-- **App name**: `AutoSetup — Site de Links` (DEVE bater com o nome exibido na página inicial, `<title>` e `<h1>` do wizard). Se o nome no console for diferente (ex.: "DemotreeWizard - AutoSetup"), **altere o nome no console** para `AutoSetup — Site de Links`.
+- **App name**: `DemotreeWizard - AutoSetup` (DEVE bater com o nome exibido na página inicial, `<title>` e `<h1>` do wizard — já alinhado). Se o nome no console for diferente, **altere no console** para `DemotreeWizard - AutoSetup`.
 - **App logo** (300×300 PNG): use o `imgs/brasao.png` do capítulo
 - **Support email**: `uniaojoaquinense@gmail.com`
 
@@ -61,7 +61,7 @@ Acesse https://console.cloud.google.com logado como **uniaojoaquinense@gmail.com
 | Home page sem link à Política de Privacidade | Faltava link no `index.html` | Já corrigido: rodapé `.legal` no `index.html` aponta para `privacidade.html` |
 | URL da Política de Privacidade não funciona | Ponto final digitado a mais (`...privacidade.html.`) ou página não publicada | Usar exatamente `https://demotree-wizard.vercel.app/privacidade.html` (sem ponto final) |
 | Home page não explica a finalidade | Faltava texto descritivo | Já corrigido: seção `.purpose` no `index.html` |
-| Nome do app não corresponde | Nome no console ≠ nome na home | Alinhar para `AutoSetup — Site de Links` em ambos |
+| Nome do app não corresponde | Nome no console ≠ nome na home | Alinhar para `DemotreeWizard - AutoSetup` em ambos |
 
 ## Rascunho da justificativa (colar no submit)
 
